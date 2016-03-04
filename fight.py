@@ -14,8 +14,20 @@ def writeDB(conn, players):
         cursor.execute('''UPDATE players SET name=?, tag=?, mu=?, sigma=?, games=? WHERE id=?''', player.asTuple())
     conn.commit()
 
+def updatePlayers(conn, player1, player2):
+    cursor = conn.cursor()
+    newRating = trueskill.rate_1vs1(player1.getRating(), player2.getRating())
+    cursor.execute('''INSERT INTO history(name, tag, mu, sigma, games) VALUES(?,?,?,?,?)''',(player1.asTuple()[:-1]))
+    cursor.execute('''INSERT INTO history(name, tag, mu, sigma, games) VALUES(?,?,?,?,?)''',(player2.asTuple()[:-1]))
+    player1.gamePlayed(newRating[0])
+    player2.gamePlayed(newRating[1])
+    cursor.execute('''UPDATE players SET name=?, tag=?, mu=?, sigma=?, games=? WHERE id=?''', player1.asTuple())
+    cursor.execute('''UPDATE players SET name=?, tag=?, mu=?, sigma=?, games=? WHERE id=?''', player2.asTuple())
+    conn.commit()
+
 def createDB(conn):
     conn.execute('''CREATE TABLE PLAYERS (ID INTEGER PRIMARY KEY, NAME TEXT NOT NULL, TAG TEXT NOT NULL, MU REAL NOT NULL, SIGMA REAL NOT NULL, GAMES INT NOT NULL);''')
+    conn.execute('''CREATE TABLE HISTORY (ID INTEGER PRIMARY KEY, NAME TEXT NOT NULL, TAG TEXT NOT NULL, MU REAL NOT NULL, SIGMA REAL NOT NULL, GAMES INT NOT NULL);''')
 
 def createPlayer(name, tag, trueskills, conn):
     checker =  conn.cursor().execute('''SELECT id FROM players where tag=?''', (tag,)).fetchone()
@@ -26,6 +38,7 @@ def createPlayer(name, tag, trueskills, conn):
         conn.commit()
     else:
         print("Player with that tag already exists")
+
 def loop(conn):
     trueskills = createList(conn) 
     env = trueskill.setup()
@@ -55,11 +68,11 @@ def loop(conn):
                 print("Losing player not found")
                 continue
             print("Match quality was {:.1%}".format(trueskill.quality_1vs1(winnerPlayer.getRating(), loserPlayer.getRating())))
-            newRating = trueskill.rate_1vs1(winnerPlayer.getRating(), loserPlayer.getRating())
-            winnerPlayer.gamePlayed(newRating[0])
-            loserPlayer.gamePlayed(newRating[1])
+            updatePlayers(conn, winnerPlayer, loserPlayer)
+        
         elif option == "2":
             print("Not currently supported")
+        
         elif option == "3":
             name = input("Input the players first and last name: ").lower()
             tag = input("Input the players tag: ").lower()
@@ -69,7 +82,7 @@ def loop(conn):
     writeDB(conn, trueskills)
 
 if __name__ == "__main__":
-    conn = sqlite3.connect('melee.db')
+    conn = sqlite3.connect(sys.argv[1] + '.db')
     try:
         conn.execute('''SELECT * FROM players''')
     except Exception as e:
