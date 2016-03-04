@@ -4,4 +4,4 @@ Requirements:
   1. Python3
   2. trueskill library found through pip3 install trueskill
 
-To use simply run from the command line: python3 \<gamename\>
+To use simply run from the command line: python3 fight.py \<gamename\>
